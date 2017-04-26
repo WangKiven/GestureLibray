@@ -52,8 +52,6 @@ public class CustomLockView extends View {
     private boolean movingNoPoint = false;
     //正在移动的x,y坐标
     float moveingX, moveingY;
-    //密码最小长度
-    private int passwordMinLength = 3;
     //判断是否触摸屏幕
     private boolean checking = false;
     //刷新
@@ -62,20 +60,10 @@ public class CustomLockView extends View {
     private Timer timer = new Timer();
     //监听
     private OnCompleteListener mCompleteListener;
-    //清除痕迹的时间
-    private long CLEAR_TIME = 100;
-    //错误限制 默认为4次
-    private int errorNumber = 4;
-    //记录上一次滑动的密码
-    private String oldPassword = null;
-    //记录当前第几次触发 默认为0次
-    private int showTimes = 0;
-    //当前密码是否正确 默认为正确
-    private boolean isCorrect = true;
     //是否显示滑动方向 默认为显示
     private boolean isShow = true;
     //验证或者设置 0:设置 1:验证
-    private LockMode mode = LockMode.SETTING_PASSWORD;
+//    private LockMode mode = LockMode.SETTING_PASSWORD;
     //用于执行清除界面
     private Handler handler = new Handler();
     //间距
@@ -107,10 +95,6 @@ public class CustomLockView extends View {
     private int mNoFingerStrokeWidth = 2;
     //按下时圆圈的边宽
     private int mOnStrokeWidth = 4;
-    //编辑密码前是否验证
-    private boolean isEditVerify = false;
-    //是否立即清除密码
-    private boolean isClearPasssword = true;
 
     //用于定时执行清除界面
     private Runnable run = new Runnable() {
@@ -418,11 +402,6 @@ public class CustomLockView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        // 不可操作
-        if (errorNumber <= 0) {
-            return false;
-        }
-        isCorrect = true;
         handler.removeCallbacks(run);
         movingNoPoint = false;
         float ex = event.getX();
@@ -475,24 +454,18 @@ public class CustomLockView extends View {
             this.reset();
             return;
         }
-        if (this.sPoints.size() < passwordMinLength
-                && this.sPoints.size() > 0) {
-            // clearPassword(CLEAR_TIME);
-            error();
-            if (mCompleteListener != null) {
-                mCompleteListener.onPasswordIsShort(passwordMinLength);  //密码太短
-            }
-            return;
-        }
-        if (this.sPoints.size() >= passwordMinLength) {
+
+        if (this.sPoints.size() > 0) {
             int[] indexs = new int[sPoints.size()];
             for (int i = 0; i < sPoints.size(); i++) {
                 indexs[i] = sPoints.get(i).index;
             }
-            if (mode == LockMode.SETTING_PASSWORD || isEditVerify) {
-                invalidSettingPass(Base64.encryptionString(indexs), indexs);
-            } else {
-                onVerifyPassword(Base64.encryptionString(indexs), indexs);
+            if (mCompleteListener != null) {
+                boolean b = mCompleteListener.onComplete(Base64.encryptionString(indexs), indexs);  //密码完成
+                if (!b) {
+                    error();
+                    postInvalidate();
+                }
             }
         }
     }
@@ -601,9 +574,6 @@ public class CustomLockView extends View {
      * 清空当前信息
      */
     public void clearCurrent() {
-        showTimes = 0;
-        errorNumber = 4;
-        isCorrect = true;
         reset();
         postInvalidate();
     }
@@ -676,141 +646,12 @@ public class CustomLockView extends View {
         canvas.drawPath(mArrowPath, mPaint);
     }
 
-
-    /**
-     * 清除密码
-     */
-    @Deprecated
-    private void clearPassword(final long time) {
-        if (time > 1) {
-            if (task != null) {
-                task.cancel();
-            }
-            postInvalidate();
-            task = new TimerTask() {
-                public void run() {
-                    reset();
-                    postInvalidate();
-                }
-            };
-            timer.schedule(task, time);
-        } else {
-            reset();
-            postInvalidate();
-        }
-    }
-
     /**
      * 设置已经选中的为错误
      */
     private void error() {
         for (Point p : sPoints) {
             p.state = Point.STATE_CHECK_ERROR;
-        }
-    }
-
-    /**
-     * 验证设置密码，滑动两次密码是否相同
-     *
-     * @param password
-     */
-    private void invalidSettingPass(String password, int[] indexs) {
-        if (showTimes == 0) {
-            oldPassword = password;
-            if (mCompleteListener != null) {
-                mCompleteListener.onAginInputPassword(mode, password, indexs);
-            }
-            showTimes++;
-            reset();
-        } else if (showTimes == 1) {
-            onVerifyPassword(password, indexs);
-        }
-    }
-
-    /**
-     * 验证本地密码与当前滑动密码是否相同
-     *
-     * @param indexs
-     */
-    private void onVerifyPassword(String password, int[] indexs) {
-        if (oldPassword != null && oldPassword.length() == password.length()) {
-            if (!StringUtils.isEquals(oldPassword, password)) {
-                isCorrect = false;
-            } else {
-                isCorrect = true;
-            }
-        } else {
-            isCorrect = false;
-        }
-        if (!isCorrect) {
-            drawPassWordError();
-        } else {
-            drawPassWordRight(password, indexs);
-        }
-    }
-
-    /**
-     * 密码输入错误回调
-     */
-    private void drawPassWordError() {
-        if (mCompleteListener == null) {
-            return;
-        }
-        if (mode == LockMode.SETTING_PASSWORD) {
-            mCompleteListener.onEnteredPasswordsDiffer();
-        } else if (mode == LockMode.EDIT_PASSWORD && isEditVerify) {
-            mCompleteListener.onEnteredPasswordsDiffer();
-        } else {
-            errorNumber--;
-            if (errorNumber <= 0) {
-                mCompleteListener.onErrorNumberMany();
-            } else {
-                mCompleteListener.onError(errorNumber + "");
-            }
-        }
-        error();
-        postInvalidate();
-    }
-
-
-    /**
-     * 输入密码正确相关回调
-     *
-     * @param indexs
-     * @param password
-     */
-    private void drawPassWordRight(String password, int[] indexs) {
-        if (mCompleteListener == null) {
-            return;
-        }
-        if (mode == LockMode.EDIT_PASSWORD && !isEditVerify) {//修改密码，旧密码正确，进行新密码设置
-            mCompleteListener.onInputNewPassword();
-            isEditVerify = true;
-            showTimes = 0;
-            return;
-        }
-        if (mode == LockMode.EDIT_PASSWORD && isEditVerify) {
-            savePassWord(password);
-        } else if (mode == LockMode.CLEAR_PASSWORD) {//清除密码
-            if (isClearPasssword) {
-                ConfigUtil.getInstance(getContext()).remove(saveLockKey);
-            }
-        } else if (mode == LockMode.SETTING_PASSWORD) {//完成密码设置，存储到本地
-            savePassWord(password);
-        } else {
-            isEditVerify = false;
-        }
-        mCompleteListener.onComplete(password, indexs);
-    }
-
-    /**
-     * 存储密码到本地
-     *
-     * @param password
-     */
-    private void savePassWord(String password) {
-        if (isSavePin) {
-            ConfigUtil.getInstance(getContext()).putString(saveLockKey, password);
         }
     }
 
@@ -830,112 +671,8 @@ public class CustomLockView extends View {
     public interface OnCompleteListener {
         /**
          * 画完了
+         * @return 密码是否正确
          */
-        void onComplete(String password, int[] indexs);
-
-        /**
-         * 绘制错误
-         */
-        void onError(String errorTimes);
-
-        /**
-         * 密码太短
-         */
-        void onPasswordIsShort(int passwordMinLength);
-
-
-        /**
-         * 设置密码再次输入密码
-         */
-        void onAginInputPassword(LockMode mode, String password, int[] indexs);
-
-
-        /**
-         * 修改密码，输入新密码
-         */
-        void onInputNewPassword();
-
-        /**
-         * 两次输入密码不一致
-         */
-        void onEnteredPasswordsDiffer();
-
-        /**
-         * 密码输入错误次数，已达到设置次数
-         */
-        void onErrorNumberMany();
-
-    }
-
-    public String getSaveLockKey() {
-        return saveLockKey;
-    }
-
-    //设置保存密码的key
-    public void setSaveLockKey(String saveLockKey) {
-        this.saveLockKey = saveLockKey;
-    }
-
-    public int getErrorNumber() {
-        return errorNumber;
-    }
-
-    //设置允许最大输入错误次数
-    public void setErrorNumber(int errorNumber) {
-        this.errorNumber = errorNumber;
-    }
-
-    public boolean isShow() {
-        return isShow;
-    }
-
-    //是否显示连接方向
-    public void setShow(boolean isShow) {
-        this.isShow = isShow;
-    }
-
-    public String getOldPassword() {
-        return oldPassword;
-    }
-
-    //设置已经设置过的密码，验证密码时需要用到
-    public void setOldPassword(String oldPassword) {
-        this.oldPassword = oldPassword;
-    }
-
-    public int getPasswordMinLength() {
-        return passwordMinLength;
-    }
-
-    //设置密码最少输入长度
-    public void setPasswordMinLength(int passwordMinLength) {
-        this.passwordMinLength = passwordMinLength;
-    }
-
-    public LockMode getMode() {
-        return mode;
-    }
-
-    //设置解锁模式
-    public void setMode(LockMode mode) {
-        this.mode = mode;
-    }
-
-    public boolean isSavePin() {
-        return isSavePin;
-    }
-
-    //设置密码后是否保存到本地
-    public void setSavePin(boolean savePin) {
-        isSavePin = savePin;
-    }
-
-    public boolean isClearPasssword() {
-        return isClearPasssword;
-    }
-
-    //是否立即清除密码
-    public void setClearPasssword(boolean clearPasssword) {
-        isClearPasssword = clearPasssword;
+        boolean onComplete(String password, int[] indexs);
     }
 }

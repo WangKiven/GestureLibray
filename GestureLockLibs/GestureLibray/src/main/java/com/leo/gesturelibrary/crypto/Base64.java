@@ -272,7 +272,7 @@ public final class Base64 {
      * @param password
      */
     public static String encryptionString(int[] password) {
-        String str = null;
+        String str = "";
         for (int i : password) {
             str += i + "";
         }
