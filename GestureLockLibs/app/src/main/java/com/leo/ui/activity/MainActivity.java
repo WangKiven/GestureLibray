@@ -1,7 +1,6 @@
 package com.leo.ui.activity;
 
 import android.content.Intent;
-import android.os.Bundle;
 import android.widget.Toast;
 
 import com.andexert.library.RippleView;
@@ -12,21 +11,20 @@ import com.leo.gesturelibrary.util.StringUtils;
 import com.leo.ui.base.BaseActivity;
 import com.leo.util.PasswordUtil;
 
-import butterknife.Bind;
-import butterknife.ButterKnife;
+import butterknife.BindView;
 
 /**
  * Created by leo on 16/4/5.
  * 主activity
  */
 public class MainActivity extends BaseActivity implements RippleView.OnRippleCompleteListener {
-    @Bind(R.id.rv_setting)
+    @BindView(R.id.rv_setting)
     RippleView rvSetting;
-    @Bind(R.id.rv_edit)
+    @BindView(R.id.rv_edit)
     RippleView rvEdit;
-    @Bind(R.id.rv_verify)
+    @BindView(R.id.rv_verify)
     RippleView rvVerify;
-    @Bind(R.id.rv_clear)
+    @BindView(R.id.rv_clear)
     RippleView rvClear;
 
     @Override
